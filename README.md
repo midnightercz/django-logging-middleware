@@ -15,7 +15,7 @@ Example: how to use django-logging-middleware
 -------------------------------------------------------------
 simplest usage of logging is put something like this into your api
 ```python
-    myobj = MyObj.objects.all()[0]
+    myobj = MyModel.objects.all()[0]
     with logging.Log(request, {"mymodel": myobj}):
         myobj.someattribute = "another value"
 ```
@@ -23,7 +23,7 @@ simplest usage of logging is put something like this into your api
 or manually:
 
 ```python
-    myobj = MyObj.objects.all()[0]
+    myobj = MyModel.objects.all()[0]
     old_obj = {"someattribute": myobj.someattribute, "id": myobj.someattribute}
     myobj.someattribute = "another value"
     new_obj = {"someattribute": myobj.someattribute, "id": myobj.someattribute}

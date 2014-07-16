@@ -1,6 +1,5 @@
 import sys
 
-from common.models import Arch
 import middleware
 from middleware import add_changeset_entry
 from models import Logging, ChangeSet, ChangeSetEntry

@@ -13,10 +13,10 @@ With this knowledge you can revert any changes made on selected model. Althrough
 
 Example: how to use django-logging-middleware
 -------------------------------------------------------------
-simplest usage of logging is put something like this into your api
+simplest usage of logging middleware is put something like this into your api
 ```python
     myobj = MyModel.objects.all()[0]
-    with logging.Log(request, {"myobj": myobj}):
+    with mlogging.Log(request, {"myobj": myobj}):
         myobj.someattribute = "another value"
 ```
 
@@ -27,7 +27,7 @@ or manually:
     old_obj = {"someattribute": myobj.someattribute, "id": myobj.someattribute}
     myobj.someattribute = "another value"
     new_obj = {"someattribute": myobj.someattribute, "id": myobj.someattribute}
-    logging.add_changeset_entry(request, "my_action,
+    mlogging.add_changeset_entry(request, "my_action,
                                 [ContentType.objects.get_for_model(MyModel)],
                                 {"myobj": old_obj},
                                 {"my_model": new_obj})
@@ -56,6 +56,6 @@ objects to prevent store excluded fields into db. By default context manager Log
 store all fields of objects
 
 ```python
-    with logging.Log(request, {"myobj": myobj},
+    with mlogging.Log(request, {"myobj": myobj},
                      exclude_fields={"myobj": ["not_this field"]}):
 ```

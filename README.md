@@ -16,7 +16,7 @@ Example: how to use django-logging-middleware
 simplest usage of logging is put something like this into your api
 ```python
     myobj = MyModel.objects.all()[0]
-    with logging.Log(request, {"mymodel": myobj}):
+    with logging.Log(request, {"myobj": myobj}):
         myobj.someattribute = "another value"
 ```
 
@@ -29,7 +29,7 @@ or manually:
     new_obj = {"someattribute": myobj.someattribute, "id": myobj.someattribute}
     logging.add_changeset_entry(request, "my_action,
                                 [ContentType.objects.get_for_model(MyModel)],
-                                {"mymodel": old_obj},
+                                {"myobj": old_obj},
                                 {"my_model": new_obj})
 ```
 
@@ -47,4 +47,15 @@ Django-logging-middleware is designed as django app because custom db models. To
     ....
     "mlogging.middle.LoggingMiddleware"
     )
+```
+
+Notes
+-----
+If you decide use Log context manager, you can specify exclude_fields for each
+objects to prevent store excluded fields into db. By default context manager Log
+store all fields of objects
+
+```python
+    with logging.Log(request, {"myobj": myobj},
+                     exclude_fields={"myobj": ["not_this field"]}):
 ```

@@ -1,8 +1,8 @@
 import sys
 
 from common.models import Arch
-import logging
-from logging import add_changeset_entry
+import middle
+from middle import add_changeset_entry
 from models import Logging, ChangeSet, ChangeSetEntry
 
 from django.test import TestCase
@@ -43,14 +43,14 @@ class LoggingTest(TestCase):
         self.rf = RequestMock()
         arch = Arch.objects.create(name="dummy arch")
         arch.save()
-        self.l_instance = logging.LoggingMiddleware()
+        self.l_instance = middle.LoggingMiddleware()
 
-    def test_logging(self):
+    def test_middle(self):
         request = self.rf.request(REQUEST_METHOD='POST')
         login(request, self.user)
         self.l_instance.process_request(request)
         arch = Arch.objects.all()[0]
-        with logging.Log(request, {"arch": arch}):
+        with middle.Log(request, {"arch": arch}):
             arch.name = "silly arch"
 
         response = lambda x: x
@@ -58,20 +58,20 @@ class LoggingTest(TestCase):
 
         self.l_instance.process_response(request, response)
 
-        loggings = Logging.objects.all()
+        middles = Logging.objects.all()
         changesets = ChangeSet.objects.all()
         entries = ChangeSetEntry.objects.all()
-        self.assertEqual(len(loggings), 1)
+        self.assertEqual(len(middles), 1)
         self.assertEqual(len(changesets), 1)
         self.assertEqual(len(entries), 1)
 
-        self.assertEqual(loggings[0].changeset, changesets[0])
+        self.assertEqual(middles[0].changeset, changesets[0])
         self.assertEqual(entries[0].changeset, changesets[0])
         self.assertEqual(changesets[0].user, self.user)
         self.assertEqual(entries[0].model,
                          ContentType.objects.get_for_model(Arch))
 
-    def test_logging_manual(self):
+    def test_middle_manual(self):
         request = self.rf.request(REQUEST_METHOD='POST')
         login(request, self.user)
         self.l_instance.process_request(request)
@@ -80,7 +80,7 @@ class LoggingTest(TestCase):
         old_arch = {"id": arch.id, "name": arch.name}
         arch.name = "silly arch"
         new_arch = {"id": arch.id, "name": arch.name}
-        add_changeset_entry(request, "test_logging_manual",
+        add_changeset_entry(request, "test_middle_manual",
                             [ContentType.objects.get_for_model(Arch)],
                             {"arch": old_arch}, {"arch": new_arch})
 
@@ -89,14 +89,14 @@ class LoggingTest(TestCase):
 
         self.l_instance.process_response(request, response)
 
-        loggings = Logging.objects.all()
+        middles = Logging.objects.all()
         changesets = ChangeSet.objects.all()
         entries = ChangeSetEntry.objects.all()
-        self.assertEqual(len(loggings), 1)
+        self.assertEqual(len(middles), 1)
         self.assertEqual(len(changesets), 1)
         self.assertEqual(len(entries), 1)
 
-        self.assertEqual(loggings[0].changeset, changesets[0])
+        self.assertEqual(middles[0].changeset, changesets[0])
         self.assertEqual(entries[0].changeset, changesets[0])
         self.assertEqual(changesets[0].user, self.user)
         self.assertEqual(entries[0].model,

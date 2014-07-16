@@ -1,4 +1,7 @@
 django-logging-middleware
 =========================
 
-middleware for recording changes in selected models and operations
+What is django-logging-middleware good for
+------------------------------------------
+
+

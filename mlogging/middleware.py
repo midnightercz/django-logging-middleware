@@ -2,6 +2,9 @@ from models import Logging, ChangeSet, ChangeSetEntry
 
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+import django.core.exceptions
+#print dir(django.core.exceptions)
+#from django.core.exceptions import DoesNotExist
 
 import sys
 import inspect
@@ -59,9 +62,13 @@ class Log(object):
         self.exclude_fields = exclude_fields
         for obj_name, obj in self.objs.iteritems():
             old_obj = {}
-            for x in obj._meta.fields:
-                if x not in exclude_fields.get(obj_name, {}):
-                    old_obj[x.name] = getattr(obj, x.name)
+            for field in obj._meta.fields:
+                if field not in exclude_fields.get(obj_name, {}):
+                    try:
+                        if hasattr(obj, field.name):
+                            old_obj[field.name] = getattr(obj, field.name)
+                    except obj.DoesNotExist:
+                        pass
             self.old_objs[obj_name] = old_obj
             self.models.append(ContentType
                                .objects.get_for_model(obj._meta.model))
@@ -82,6 +89,27 @@ class Log(object):
         else:
             raise exc_type, exc_value
 
+
+def log_create(request, objs):
+    old_objs = {}
+    new_objs = {}
+    models = []
+    action = inspect.stack()[1][3]
+    for obj_name, obj in objs.iteritems():
+        old_obj = {}
+        new_obj = {}
+        #print >> sys.stderr, dir(obj)
+        for field in obj._meta.fields:
+            try:
+                if hasattr(obj, field.name):
+                    new_obj[field.name] = getattr(obj, field.name)
+            except obj._meta.model.DoesNotExist:
+                pass
+        new_objs[obj_name] = new_obj
+        old_objs[obj_name] = old_obj
+        models.append(ContentType.objects.get_for_model(obj._meta.model))
+    add_changeset_entry(request, action,
+                        models, old_objs, new_objs)
 
 def add_changeset_entry(request, action, models, old_args, new_args):
     chsetitem = {"action": action, "data": []}

@@ -1,10 +1,12 @@
 import sys
 
-from common.models import Arch
-import logging
-from logging import add_changeset_entry
+import middleware
+from middleware import add_changeset_entry
 from models import Logging, ChangeSet, ChangeSetEntry
 
+from django.core import management
+from django.core.management import sql, color
+from django.db import connection, models
 from django.test import TestCase
 from django.test.client import RequestFactory
 from django.core.handlers.base import BaseHandler
@@ -35,69 +37,94 @@ def user_login(test_case, name, pswd, **request):
 
 
 class LoggingTest(TestCase):
+    def make_model(self):
+        self.model = type('DummyModel', (models.Model,), {
+                          'dummy_attr': models.CharField(max_length=255),
+                          "__module__": "mlogging.tests"})
+
+        self._style = color.no_style()
+
+        self._cursor = connection.cursor()
+        statements, pending = connection.creation.sql_create_model(self.model,
+                                                                   self._style)
+        for statement in statements:
+            self._cursor.execute(statement)
+        ContentType.objects.get_for_model(self.model).save()
+
     def setUp(self):
         test_user = User.objects.create_user("test_user", "test_user@mail.com")
         test_user.set_password("test_pass")
         test_user.save()
         self.user = authenticate(username="test_user", password="test_pass")
         self.rf = RequestMock()
-        arch = Arch.objects.create(name="dummy arch")
-        arch.save()
-        self.l_instance = logging.LoggingMiddleware()
+        self.make_model()
+        #self.model.save(self.model)
+        dm = self.model.objects.create(dummy_attr="some value")
 
-    def test_logging(self):
+        dm.save()
+
+        self.l_instance = middleware.LoggingMiddleware()
+
+    def tearDown(self):
+        statements = connection.creation.sql_destroy_model(self.model, (),
+                                                           self._style)
+        for statement in statements:
+            self._cursor.execute(statement)
+
+    def test_middle_x(self):
         request = self.rf.request(REQUEST_METHOD='POST')
         login(request, self.user)
         self.l_instance.process_request(request)
-        arch = Arch.objects.all()[0]
-        with logging.Log(request, {"arch": arch}):
-            arch.name = "silly arch"
+        dummy_o = self.model.objects.all()[0]
+        #print >> sys.stderr, dummy_o
+        with middleware.Log(request, {"dummy_o": dummy_o}):
+            dummy_o.dummy_attr = "silly value"
 
         response = lambda x: x
         response.status_code = 200
 
         self.l_instance.process_response(request, response)
 
-        loggings = Logging.objects.all()
+        middles = Logging.objects.all()
         changesets = ChangeSet.objects.all()
         entries = ChangeSetEntry.objects.all()
-        self.assertEqual(len(loggings), 1)
+        self.assertEqual(len(middles), 1)
         self.assertEqual(len(changesets), 1)
         self.assertEqual(len(entries), 1)
 
-        self.assertEqual(loggings[0].changeset, changesets[0])
+        self.assertEqual(middles[0].changeset, changesets[0])
         self.assertEqual(entries[0].changeset, changesets[0])
         self.assertEqual(changesets[0].user, self.user)
         self.assertEqual(entries[0].model,
-                         ContentType.objects.get_for_model(Arch))
+                         ContentType.objects.get_for_model(self.model))
 
-    def test_logging_manual(self):
+    def test_middle_manual(self):
         request = self.rf.request(REQUEST_METHOD='POST')
         login(request, self.user)
         self.l_instance.process_request(request)
-        arch = Arch.objects.all()[0]
+        dummy_o = self.model.objects.all()[0]
 
-        old_arch = {"id": arch.id, "name": arch.name}
-        arch.name = "silly arch"
-        new_arch = {"id": arch.id, "name": arch.name}
-        add_changeset_entry(request, "test_logging_manual",
-                            [ContentType.objects.get_for_model(Arch)],
-                            {"arch": old_arch}, {"arch": new_arch})
+        old_dummy = {"id": dummy_o.id, "dummy_attr": dummy_o.dummy_attr}
+        dummy_o.dummy_attr = "new dummy value"
+        new_dummy = {"id": dummy_o.id, "dummy_attr": dummy_o.dummy_attr}
+        add_changeset_entry(request, "test_middle_manual",
+                            [ContentType.objects.get_for_model(dummy_o._meta.model)],
+                            {"dummy_o": old_dummy}, {"dummy_o": new_dummy})
 
         response = lambda x: x
         response.status_code = 200
 
         self.l_instance.process_response(request, response)
 
-        loggings = Logging.objects.all()
+        middles = Logging.objects.all()
         changesets = ChangeSet.objects.all()
         entries = ChangeSetEntry.objects.all()
-        self.assertEqual(len(loggings), 1)
+        self.assertEqual(len(middles), 1)
         self.assertEqual(len(changesets), 1)
         self.assertEqual(len(entries), 1)
 
-        self.assertEqual(loggings[0].changeset, changesets[0])
+        self.assertEqual(middles[0].changeset, changesets[0])
         self.assertEqual(entries[0].changeset, changesets[0])
         self.assertEqual(changesets[0].user, self.user)
         self.assertEqual(entries[0].model,
-                         ContentType.objects.get_for_model(Arch))
+                         ContentType.objects.get_for_model(self.model))
